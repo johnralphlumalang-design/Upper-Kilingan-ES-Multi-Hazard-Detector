@@ -1,0 +1,11 @@
+export const APP_CONFIG = {
+  appName: "Upper Kilingan E/S Multi-Hazard Detector",
+  shortName: "UKES Hazard Detector",
+  organization: "Upper Kilingan Elementary School",
+  schoolId: "UKES-DEPAD-ALERT-SYS",
+  emergencyContacts: {
+    principalOffice: "+63-XXX-XXX-XXXX",
+    localMDRRMO: "911", // Local Disaster Risk Reduction Management Office
+    barangayHall: "+63-XXX-XXX-XXXX"
+  }
+};
