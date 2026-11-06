@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Upper Kilingan E/S Multi-Hazard Detector</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    @keyframes pulse-red {
+      0%, 100% { background-color: rgba(220, 38, 38, 1); }
+      50% { background-color: rgba(153, 27, 27, 1); }
+    }
+    .alert-critical-bg {
+      animation: pulse-red 1.2s infinite;
+    }
+  </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen font-sans flex flex-col justify-between">
+
+  <!-- Header -->
+  <header class="bg-slate-800 border-b border-slate-700 p-4 sticky top-0 z-40 shadow-lg">
+    <div class="max-w-4xl mx-auto flex justify-between items-center">
+      <div class="flex items-center gap-3">
+        <div class="bg-red-600 text-white p-2.5 rounded-xl shadow">
+          <i class="fa-solid fa-triangle-exclamation text-xl"></i>
+        </div>
+        <div>
+          <h1 class="font-bold text-lg leading-tight text-white">Upper Kilingan E/S</h1>
+          <p class="text-xs text-slate-400">Multi-Hazard Early Warning Detector</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> SYSTEM ACTIVE
+        </span>
+        <button onclick="resetSetup()" class="text-slate-400 hover:text-white p-2 rounded-lg bg-slate-700/50 hover:bg-slate-700 text-xs transition">
+          <i class="fa-solid fa-gear"></i> Setup
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Setup Wizard Modal -->
+  <div id="setupModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-slate-800 border border-slate-700 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-5">
+      <div class="text-center space-y-1">
+        <div class="w-12 h-12 bg-red-500/10 text-red-400 rounded-full flex items-center justify-center mx-auto mb-2 text-2xl">
+          <i class="fa-solid fa-shield-halved"></i>
+        </div>
+        <h2 class="text-xl font-bold text-white">Initial App Setup</h2>
+        <p class="text-xs text-slate-400">Configure notifications for Upper Kilingan E/S</p>
+      </div>
+
+      <div class="space-y-4">
+        <div>
+          <label class="block text-xs font-medium text-slate-300 mb-1">Select User Role</label>
+          <select id="userRole" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm text-slate-200 focus:outline-none focus:border-red-500">
+            <option value="Faculty / Teacher">Faculty / Classroom Teacher</option>
+            <option value="Student / Parent">Student / Parent</option>
+            <option value="DRRM Officer">School DRRM Officer / Staff</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-slate-300 mb-1">Campus Zone / Building Location</label>
+          <select id="userZone" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm text-slate-200 focus:outline-none focus:border-red-500">
+            <option value="Grade 1-3 Building (Building A)">Grade 1-3 Building (Building A)</option>
+            <option value="Grade 4-6 Building (Building B)">Grade 4-6 Building (Building B)</option>
+            <option value="Admin / Principal Office">Admin / Principal Office</option>
+          </select>
+        </div>
+
+        <div class="bg-slate-900/60 border border-slate-700/50 rounded-lg p-3 space-y-2">
+          <div class="flex items-center justify-between text-xs">
+            <span class="text-slate-300">Background GPS Geofencing</span>
+            <input type="checkbox" checked disabled class="accent-red-500">
+          </div>
+          <div class="flex items-center justify-between text-xs">
+            <span class="text-slate-300">Critical Siren Audio Overrides</span>
+            <input type="checkbox" id="audioPerm" checked class="accent-red-500">
+          </div>
+        </div>
+      </div>
+
+      <button onclick="completeSetup()" class="w-full bg-red-600 hover:bg-red-500 text-white font-semibold py-2.5 rounded-lg text-sm transition shadow-lg shadow-red-600/30">
+        Complete Setup & Start Monitoring
+      </button>
+    </div>
+  </div>
+
+  <!-- Main Container -->
+  <main class="max-w-4xl mx-auto w-full p-4 space-y-6 flex-1">
+    
+    <!-- User Banner -->
+    <div class="bg-slate-800/80 border border-slate-700/60 rounded-xl p-3 flex flex-wrap items-center justify-between text-xs text-slate-300 gap-2">
+      <div class="flex items-center gap-2">
+        <i class="fa-solid fa-user-shield text-red-400"></i>
+        <span>Role: <strong id="displayRole" class="text-white">Faculty / Teacher</strong></span>
+      </div>
+      <div class="flex items-center gap-2">
+        <i class="fa-solid fa-location-dot text-red-400"></i>
+        <span>Zone: <strong id="displayZone" class="text-white">Grade 4-6 Building</strong></span>
+      </div>
+    </div>
+
+    <!-- DepEd 4H Heat Index Widget -->
+    <div class="bg-slate-800 border border-slate-700 rounded-2xl p-5 shadow-lg space-y-4">
+      <div class="flex justify-between items-start">
+        <div>
+          <span class="text-xs font-semibold uppercase tracking-wider text-amber-400">DepEd Memo No. 64</span>
+          <h2 class="text-lg font-bold text-white flex items-center gap-2">
+            <i class="fa-solid fa-temperature-high text-amber-500"></i> DepEd 4H Heat Index Engine
+          </h2>
+        </div>
+        <div id="heatBadge" class="px-3 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+          HINGA LEVEL (38°C)
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
+        <div class="bg-slate-900 rounded-xl p-4 text-center border border-slate-700/50">
+          <div class="text-xs text-slate-400 mb-1">Current Apparent Temperature</div>
+          <div id="heatDisplay" class="text-4xl font-extrabold text-amber-400">38°C</div>
+          <div id="heatStatusText" class="text-xs text-amber-300 mt-1 font-medium">Caution / Extreme Heat</div>
+        </div>
+
+        <div class="md:col-span-2 space-y-3">
+          <div class="flex justify-between text-xs text-slate-400 font-medium">
+            <span>HAYO (&lt;27°C)</span>
+            <span>HINAY (27-32°C)</span>
+            <span>HINGA (33-41°C)</span>
+            <span>HINTO (≥42°C)</span>
+          </div>
+          <div class="w-full bg-slate-900 rounded-full h-3 overflow-hidden p-0.5 border border-slate-700 flex">
+            <div id="barHayo" class="h-full bg-emerald-500 rounded-l-full w-1/4 transition-all"></div>
+            <div id="barHinay" class="h-full bg-yellow-500 w-1/4 transition-all"></div>
+            <div id="barHinga" class="h-full bg-amber-500 w-1/4 transition-all"></div>
+            <div id="barHinto" class="h-full bg-red-600 rounded-r-full w-1/4 transition-all opacity-40"></div>
+          </div>
+          <div id="depedModality" class="bg-slate-900/80 rounded-lg p-2.5 border border-slate-700/60 text-xs text-slate-300 flex items-center gap-2">
+            <i class="fa-solid fa-graduation-cap text-amber-400 text-sm"></i>
+            <span><strong>Learning Modality:</strong> In-person classes suspended. Shift to Modular Distance Learning (MDL).</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Multi-Hazard Status Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <!-- Typhoon Card -->
+      <div class="bg-slate-800 border border-slate-700 rounded-xl p-4 shadow space-y-2">
+        <div class="flex justify-between items-center text-xs text-slate-400">
+          <span>PAGASA TCWS</span>
+          <i class="fa-solid fa-hurricane text-sky-400 text-base"></i>
+        </div>
+        <div class="text-base font-bold text-white">Typhoon Warning</div>
+        <div id="typhoonStatus" class="text-xs font-semibold text-emerald-400">No Active Signals</div>
+        <p id="typhoonSub" class="text-[11px] text-slate-400">Normal weather monitoring. Class schedule unaffected.</p>
+      </div>
+
+      <!-- Earthquake Card -->
+      <div class="bg-slate-800 border border-slate-700 rounded-xl p-4 shadow space-y-2">
+        <div class="flex justify-between items-center text-xs text-slate-400">
+          <span>PHIVOLCS Seismic</span>
+          <i class="fa-solid fa-house-chimney-crack text-orange-400 text-base"></i>
+        </div>
+        <div class="text-base font-bold text-white">Seismic Activity</div>
+        <div id="seismicStatus" class="text-xs font-semibold text-emerald-400">Intensity I (Minor)</div>
+        <p id="seismicSub" class="text-[11px] text-slate-400">No harmful ground movement detected near school grounds.</p>
+      </div>
+
+      <!-- Fire / Intruder Status Card -->
+      <div class="bg-slate-800 border border-slate-700 rounded-xl p-4 shadow space-y-2">
+        <div class="flex justify-between items-center text-xs text-slate-400">
+          <span>Campus Perimeter</span>
+          <i class="fa-solid fa-shield-cat text-purple-400 text-base"></i>
+        </div>
+        <div class="text-base font-bold text-white">Security & Fire</div>
+        <div id="securityStatus" class="text-xs font-semibold text-emerald-400">All Clear</div>
+        <p id="securitySub" class="text-[11px] text-slate-400">Smoke sensors & perimeter lockdown systems reporting clear.</p>
+      </div>
+    </div>
+
+    <!-- Interactive Hazard Simulator Control Panel -->
+    <div class="bg-slate-800/90 border border-red-500/30 rounded-2xl p-5 shadow-xl space-y-4">
+      <div class="flex items-center justify-between">
+        <h3 class="text-sm font-bold text-slate-200 flex items-center gap-2">
+          <i class="fa-solid fa-sliders text-red-400"></i> Interactive Hazard Simulator
+        </h3>
+        <span class="text-[11px] bg-red-500/10 text-red-400 px-2 py-0.5 rounded border border-red-500/20">Testing Mode</span>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <!-- Heat Index Slider -->
+        <div class="bg-slate-900 p-3.5 rounded-xl border border-slate-700/60 space-y-2">
+          <div class="flex justify-between text-xs">
+            <span class="text-slate-300 font-medium">Simulate Heat Index</span>
+            <span id="sliderVal" class="text-amber-400 font-bold">38°C</span>
+          </div>
+          <input type="range" id="heatSlider" min="20" max="46" value="38" class="w-full accent-amber-500 bg-slate-800 h-2 rounded-lg cursor-pointer" oninput="updateHeatSim(this.value)">
+          <div class="flex justify-between text-[10px] text-slate-500">
+            <span>20°C (HAYO)</span>
+            <span>30°C (HINAY)</span>
+            <span>40°C (HINGA)</span>
+            <span>43°C (HINTO)</span>
+          </div>
+        </div>
+
+        <!-- Earthquake Slider -->
+        <div class="bg-slate-900 p-3.5 rounded-xl border border-slate-700/60 space-y-2">
+          <div class="flex justify-between text-xs">
+            <span class="text-slate-300 font-medium">Simulate Earthquake Intensity</span>
+            <span id="quakeVal" class="text-orange-400 font-bold">Intensity 1</span>
+          </div>
+          <input type="range" id="quakeSlider" min="1" max="8" value="1" class="w-full accent-orange-500 bg-slate-800 h-2 rounded-lg cursor-pointer" oninput="updateQuakeSim(this.value)">
+          <div class="flex justify-between text-[10px] text-slate-500">
+            <span>Int I</span>
+            <span>Int IV</span>
+            <span>Int VI (Trigger Alert)</span>
+            <span>Int VIII</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-2 pt-1">
+        <button onclick="triggerTyphoonAlert()" class="bg-sky-600/20 hover:bg-sky-600/30 text-sky-300 border border-sky-500/30 py-2 px-3 rounded-lg text-xs font-semibold transition">
+          <i class="fa-solid fa-cloud-bolt mr-1"></i> Typhoon Signal 2
+        </button>
+        <button onclick="triggerFireAlert()" class="bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 border border-amber-500/30 py-2 px-3 rounded-lg text-xs font-semibold transition">
+          <i class="fa-solid fa-fire mr-1"></i> Trigger Fire Alarm
+        </button>
+        <button onclick="triggerShooterAlert()" class="bg-red-600/20 hover:bg-red-600/30 text-red-300 border border-red-500/30 py-2 px-3 rounded-lg text-xs font-semibold transition">
+          <i class="fa-solid fa-person-rifle mr-1"></i> Active Shooter SOS
+        </button>
+        <button onclick="resetAllHazards()" class="bg-slate-700 hover:bg-slate-600 text-slate-200 py-2 px-3 rounded-lg text-xs font-semibold transition">
+          <i class="fa-solid fa-rotate-left mr-1"></i> Reset All Signals
+        </button>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Emergency Alert Overlay Modal -->
+  <div id="alertOverlay" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+    <div id="alertCard" class="max-w-lg w-full bg-slate-800 border-2 border-red-600 rounded-2xl p-6 shadow-2xl space-y-4">
+      <div class="flex items-start justify-between border-b border-slate-700 pb-3">
+        <div class="flex items-center gap-3">
+          <div id="alertIconBox" class="w-12 h-12 rounded-xl bg-red-600 text-white flex items-center justify-center text-2xl font-bold">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+          </div>
+          <div>
+            <span id="alertHeaderTag" class="text-[10px] font-bold uppercase tracking-widest text-red-400">UKES CRITICAL EMERGENCY</span>
+            <h3 id="alertTitle" class="text-lg font-extrabold text-white leading-tight">FIRE ALARM: IMMEDIATE EVACUATION</h3>
+          </div>
+        </div>
+      </div>
+
+      <div class="space-y-3">
+        <div class="bg-slate-900/90 rounded-lg p-3 text-xs space-y-1">
+          <div class="text-slate-400">Location: <strong id="alertLocation" class="text-slate-200">Grade 4-6 Building (Building B)</strong></div>
+          <div class="text-slate-400">Timestamp: <strong id="alertTime" class="text-slate-200">Just Now</strong></div>
+        </div>
+
+        <div class="space-y-1.5">
+          <div class="text-xs font-bold text-slate-300 uppercase tracking-wider">Required Action Protocol:</div>
+          <div id="alertProtocol" class="bg-red-950/40 border border-red-800/50 text-red-200 rounded-lg p-3 text-xs leading-relaxed">
+            Evacuate immediately via Exit Route 2 to the open field. Do not return for personal belongings.
+          </div>
+        </div>
+      </div>
+
+      <div class="flex gap-2 pt-2">
+        <button onclick="dismissAlert()" class="w-full bg-slate-700 hover:bg-slate-600 text-white font-semibold py-2.5 rounded-lg text-xs transition">
+          Acknowledge Alert
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="bg-slate-800/60 border-t border-slate-700/50 py-3 text-center text-xs text-slate-400">
+    <p>Upper Kilingan Elementary School • Disaster Risk Reduction & Management (DRRM) System</p>
+  </footer>
+
+  <!-- App Script -->
+  <script>
+    let userRole = "Faculty / Teacher";
+    let userZone = "Grade 4-6 Building (Building B)";
+    let audioCtx = null;
+
+    function initAudio() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+    }
+
+    function playBeep(freq = 880, duration = 0.3) {
+      try {
+        initAudio();
+        if (audioCtx.state === 'suspended') {
+          audioCtx.resume();
+        }
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + duration);
+      } catch (e) {
+        console.log("Audio play suppressed");
+      }
+    }
+
+    function completeSetup() {
+      userRole = document.getElementById('userRole').value;
+      userZone = document.getElementById('userZone').value;
+      document.getElementById('displayRole').textContent = userRole;
+      document.getElementById('displayZone').textContent = userZone;
+      document.getElementById('setupModal').classList.add('hidden');
+      playBeep(660, 0.2);
+    }
+
+    function resetSetup() {
+      document.getElementById('setupModal').classList.remove('hidden');
+    }
+
+    function updateHeatSim(val) {
+      document.getElementById('sliderVal').textContent = val + "°C";
+      document.getElementById('heatDisplay').textContent = val + "°C";
+      
+      const badge = document.getElementById('heatBadge');
+      const statusText = document.getElementById('heatStatusText');
+      const modality = document.getElementById('depedModality');
+
+      if (val >= 42) {
+        badge.className = "px-3 py-1 rounded-full text-xs font-bold bg-red-600/30 text-red-300 border border-red-500/50 animate-pulse";
+        badge.textContent = `HINTO LEVEL (${val}°C)`;
+        statusText.textContent = "EXTREME HEAT DANGER";
+        statusText.className = "text-xs text-red-400 mt-1 font-bold";
+        modality.innerHTML = `<i class="fa-solid fa-ban text-red-400 text-sm"></i><span><strong>HINTO LEVEL:</strong> All in-person AND home-based learning activities halted per DepEd framework.</span>`;
+        showAlert("HINTO LEVEL HEAT ALERT", `Heat Index reached ${val}°C. Stop all school activities. Keep children indoors and hydrated.`, "HEAT_DANGER");
+      } else if (val >= 33) {
+        badge.className = "px-3 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30";
+        badge.textContent = `HINGA LEVEL (${val}°C)`;
+        statusText.textContent = "Caution / Extreme Heat Alert";
+        statusText.className = "text-xs text-amber-300 mt-1 font-medium";
+        modality.innerHTML = `<i class="fa-solid fa-graduation-cap text-amber-400 text-sm"></i><span><strong>Learning Modality:</strong> In-person classes suspended. Shift to Modular Distance Learning (MDL).</span>`;
+      } else if (val >= 27) {
+        badge.className = "px-3 py-1 rounded-full text-xs font-bold bg-yellow-500/20 text-yellow-300 border border-yellow-500/30";
+        badge.textContent = `HINAY LEVEL (${val}°C)`;
+        statusText.textContent = "Moderate Warm Temperature";
+        statusText.className = "text-xs text-yellow-300 mt-1 font-medium";
+        modality.innerHTML = `<i class="fa-solid fa-clock text-yellow-400 text-sm"></i><span><strong>Learning Modality:</strong> Shortened class hours. Provide mandatory water breaks every 30 mins.</span>`;
+      } else {
+        badge.className = "px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30";
+        badge.textContent = `HAYO LEVEL (${val}°C)`;
+        statusText.textContent = "Normal Temperature";
+        statusText.className = "text-xs text-emerald-400 mt-1 font-medium";
+        modality.innerHTML = `<i class="fa-solid fa-check text-emerald-400 text-sm"></i><span><strong>Learning Modality:</strong> Normal face-to-face instruction in effect.</span>`;
+      }
+    }
+
+    function updateQuakeSim(val) {
+      const display = document.getElementById('quakeVal');
+      const status = document.getElementById('seismicStatus');
+      const sub = document.getElementById('seismicSub');
+
+      display.textContent = `Intensity ${val}`;
+      if (val >= 6) {
+        status.textContent = `Intensity ${val} (STRONG)`;
+        status.className = "text-xs font-semibold text-red-400";
+        sub.textContent = "Major ground movement detected on campus!";
+        showAlert("EARTHQUAKE ALERT", "DUCK, COVER, AND HOLD IMMEDIATELY. Evacuate to the open field once ground shaking stops.", "QUAKE");
+      } else if (val >= 3) {
+        status.textContent = `Intensity ${val} (Light)`;
+        status.className = "text-xs font-semibold text-yellow-400";
+        sub.textContent = "Minor tremors reported. Stay alert.";
+      } else {
+        status.textContent = "Intensity I (Minor)";
+        status.className = "text-xs font-semibold text-emerald-400";
+        sub.textContent = "No harmful ground movement detected near school grounds.";
+      }
+    }
+
+    function triggerTyphoonAlert() {
+      document.getElementById('typhoonStatus').textContent = "Signal No. 2 Active";
+      document.getElementById('typhoonStatus').className = "text-xs font-semibold text-sky-400";
+      document.getElementById('typhoonSub').textContent = "PAGASA Signal #2 in effect. Automatic class suspension.";
+      showAlert("TYPHOON SIGNAL NO. 2", "PAGASA TCWS #2 raised in local area. In-person classes automatically suspended. Secure all windows.", "TYPHOON");
+    }
+
+    function triggerFireAlert() {
+      document.getElementById('securityStatus').textContent = "FIRE ALARM ACTIVATED";
+      document.getElementById('securityStatus').className = "text-xs font-semibold text-red-400 animate-pulse";
+      document.getElementById('securitySub').textContent = "Smoke detected in Building B corridor.";
+      showAlert("FIRE ALARM: EVACUATE NOW", "Fire detected in Building B corridor. Evacuate immediately via Exit Route 2 to the open field.", "FIRE");
+    }
+
+    function triggerShooterAlert() {
+      document.getElementById('securityStatus').textContent = "CAMPUS LOCKDOWN";
+      document.getElementById('securityStatus').className = "text-xs font-semibold text-red-400 animate-pulse";
+      document.getElementById('securitySub').textContent = "Security breach / intruder reported.";
+      showAlert("ACTIVE INTRUDER / LOCKDOWN", "UNAUTHORIZED INTRUDER REPORTED ON CAMPUS. Lock classroom doors, turn off lights, remain silent. RUN if safe, HIDE, FIGHT as last resort.", "SHOOTER");
+    }
+
+    function resetAllHazards() {
+      document.getElementById('heatSlider').value = 38;
+      updateHeatSim(38);
+      document.getElementById('quakeSlider').value = 1;
+      updateQuakeSim(1);
+      document.getElementById('typhoonStatus').textContent = "No Active Signals";
+      document.getElementById('typhoonStatus').className = "text-xs font-semibold text-emerald-400";
+      document.getElementById('typhoonSub').textContent = "Normal weather monitoring. Class schedule unaffected.";
+      document.getElementById('securityStatus').textContent = "All Clear";
+      document.getElementById('securityStatus').className = "text-xs font-semibold text-emerald-400";
+      document.getElementById('securitySub').textContent = "Smoke sensors & perimeter lockdown systems reporting clear.";
+    }
+
+    function showAlert(title, protocol, type) {
+      document.getElementById('alertTitle').textContent = title;
+      document.getElementById('alertProtocol').textContent = protocol;
+      document.getElementById('alertLocation').textContent = userZone;
+      document.getElementById('alertTime').textContent = new Date().toLocaleTimeString();
+      document.getElementById('alertOverlay').classList.remove('hidden');
+
+      const card = document.getElementById('alertCard');
+      if (type === 'SHOOTER' || type === 'FIRE' || type === 'QUAKE') {
+        card.className = "max-w-lg w-full bg-slate-800 border-2 border-red-600 rounded-2xl p-6 shadow-2xl space-y-4 alert-critical-bg";
+        playBeep(950, 0.6);
+      } else {
+        card.className = "max-w-lg w-full bg-slate-800 border-2 border-amber-500 rounded-2xl p-6 shadow-2xl space-y-4";
+        playBeep(700, 0.4);
+      }
+    }
+
+    function dismissAlert() {
+      document.getElementById('alertOverlay').classList.add('hidden');
+    }
+  </script>
+</body>
+</html>
